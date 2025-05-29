@@ -1,0 +1,1244 @@
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { initializeApp } from 'firebase/app';
+import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from 'firebase/auth';
+import { getFirestore, doc, collection, addDoc, getDocs, onSnapshot, updateDoc, deleteDoc, setDoc, query, where, writeBatch, Timestamp, setLogLevel } from 'firebase/firestore';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+
+// --- Lucide Icons (SVG) ---
+const PlusCircle = ({ className = "w-6 h-6" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="12" cy="12" r="10" />
+    <line x1="12" y1="8" x2="12" y2="16" />
+    <line x1="8" y1="12" x2="16" y2="12" />
+  </svg>
+);
+
+const Edit3 = ({ className = "w-5 h-5" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+  </svg>
+);
+
+const Trash2 = ({ className = "w-5 h-5" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polyline points="3 6 5 6 21 6" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <line x1="10" y1="11" x2="10" y2="17" />
+    <line x1="14" y1="11" x2="14" y2="17" />
+  </svg>
+);
+
+const LogOut = ({ className = "w-6 h-6" }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <polyline points="16 17 21 12 16 7" />
+    <line x1="21" y1="12" x2="9" y2="12" />
+  </svg>
+);
+
+const DollarSign = ({ className = "w-6 h-6" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <line x1="12" y1="1" x2="12" y2="23" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+);
+
+const TrendingUp = ({ className = "w-6 h-6" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+        <polyline points="17 6 23 6 23 12" />
+    </svg>
+);
+
+const TrendingDown = ({ className = "w-6 h-6" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
+        <polyline points="17 18 23 18 23 12" />
+    </svg>
+);
+
+const PieChartIcon = ({ className = "w-6 h-6" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+        <path d="M22 12A10 10 0 0 0 12 2v10z" />
+    </svg>
+);
+
+const List = ({ className = "w-6 h-6" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <line x1="8" y1="6" x2="21" y2="6" />
+        <line x1="8" y1="12" x2="21" y2="12" />
+        <line x1="8" y1="18" x2="21" y2="18" />
+        <line x1="3" y1="6" x2="3.01" y2="6" />
+        <line x1="3" y1="12" x2="3.01" y2="12" />
+        <line x1="3" y1="18" x2="3.01" y2="18" />
+    </svg>
+);
+
+const Target = ({ className = "w-6 h-6" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <circle cx="12" cy="12" r="10" />
+        <circle cx="12" cy="12" r="6" />
+        <circle cx="12" cy="12" r="2" />
+    </svg>
+);
+
+
+// --- Firebase Configuration ---
+const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+  apiKey: "YOUR_API_KEY", // Replace with your actual config
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-finance-app';
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+setLogLevel('debug'); // Optional: for Firestore logging
+
+// --- Default Categories ---
+const DEFAULT_CATEGORIES = [
+  { name: "Groceries", type: "expense", icon: "🛒" },
+  { name: "Salary", type: "income", icon: "💰" },
+  { name: "Rent/Mortgage", type: "expense", icon: "🏠" },
+  { name: "Utilities", type: "expense", icon: "💡" },
+  { name: "Transportation", type: "expense", icon: "🚗" },
+  { name: "Dining Out", type: "expense", icon: "🍔" },
+  { name: "Entertainment", type: "expense", icon: "🎬" },
+  { name: "Healthcare", type: "expense", icon: "🩺" },
+  { name: "Shopping", type: "expense", icon: "🛍️" },
+  { name: "Freelance", type: "income", icon: "💼" },
+  { name: "Investment", type: "income", icon: "📈" },
+  { name: "Other Expense", type: "expense", icon: "💸" },
+  { name: "Other Income", type: "income", icon: "🪙" },
+];
+
+
+// --- Helper Functions ---
+const formatDate = (date) => {
+  if (date && date.toDate) { // Check if it's a Firestore Timestamp
+    return date.toDate().toLocaleDateString('en-CA'); // YYYY-MM-DD for input[type=date]
+  }
+  if (date instanceof Date) {
+    return date.toLocaleDateString('en-CA');
+  }
+  if (typeof date === 'string') { // if it's already a string, assume YYYY-MM-DD
+    return date;
+  }
+  return new Date().toLocaleDateString('en-CA');
+};
+
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount || 0);
+};
+
+// --- Main App Component ---
+function App() {
+  const [user, setUser] = useState(null);
+  const [userId, setUserId] = useState(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+  const [currentView, setCurrentView] = useState('dashboard'); // dashboard, transactions, budgets
+  
+  const [transactions, setTransactions] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [budgets, setBudgets] = useState([]);
+
+  const [showTransactionModal, setShowTransactionModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+
+  const [showBudgetModal, setShowBudgetModal] = useState(false);
+  const [editingBudget, setEditingBudget] = useState(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Firebase Auth Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUser(currentUser);
+        setUserId(currentUser.uid);
+        console.log("User signed in with UID:", currentUser.uid);
+      } else {
+        setUser(null);
+        setUserId(null);
+        console.log("User signed out or token not available yet.");
+        // Attempt to sign in if no user
+        try {
+          if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+            console.log("Attempting sign in with custom token.");
+            await signInWithCustomToken(auth, __initial_auth_token);
+          } else {
+            console.log("Attempting anonymous sign in.");
+            await signInAnonymously(auth);
+          }
+        } catch (err) {
+          console.error("Error during sign-in:", err);
+          setError("Failed to authenticate. Please try again later.");
+        }
+      }
+      setIsAuthReady(true); // Auth state is now determined
+      setIsLoading(false); // Stop initial loading once auth is ready
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Firestore Path Helpers
+  const getCollectionPath = useCallback((collectionName) => {
+      if (!userId) return null;
+      return `artifacts/${appId}/users/${userId}/${collectionName}`;
+  }, [userId]);
+
+  const getDocPath = useCallback((collectionName, docId) => {
+      if (!userId || !docId) return null;
+      return `artifacts/${appId}/users/${userId}/${collectionName}/${docId}`;
+  }, [userId]);
+
+  // Seed Default Categories
+  const seedDefaultCategories = useCallback(async () => {
+    if (!userId || !db) return;
+    const categoriesPath = getCollectionPath('categories');
+    if (!categoriesPath) return;
+
+    try {
+      const categoriesCollectionRef = collection(db, categoriesPath);
+      const existingCategoriesSnap = await getDocs(categoriesCollectionRef);
+      
+      if (existingCategoriesSnap.empty) {
+        console.log("No categories found, seeding default categories...");
+        const batch = writeBatch(db);
+        DEFAULT_CATEGORIES.forEach(cat => {
+          const newCatRef = doc(categoriesCollectionRef); // Auto-generate ID
+          batch.set(newCatRef, { ...cat, createdAt: Timestamp.now() });
+        });
+        await batch.commit();
+        console.log("Default categories seeded.");
+      } else {
+        console.log("Categories already exist, skipping seed.");
+      }
+    } catch (err) {
+      console.error("Error seeding default categories:", err);
+      setError("Could not initialize categories.");
+    }
+  }, [userId, db, getCollectionPath]);
+
+  // Fetch Data (Transactions, Categories, Budgets)
+  useEffect(() => {
+    if (!isAuthReady || !userId || !db) {
+      // console.log("Firestore useEffect: Auth not ready, userId not set, or db not initialized. Skipping fetch.");
+      // If not authenticated, ensure lists are empty
+      if (!userId) {
+          setTransactions([]);
+          setCategories([]);
+          setBudgets([]);
+      }
+      return;
+    }
+    
+    // console.log("Firestore useEffect: Auth ready, userId set. Fetching data for user:", userId);
+    setIsLoading(true);
+
+    // Seed categories if they don't exist
+    seedDefaultCategories();
+
+    const transactionsPath = getCollectionPath('transactions');
+    const categoriesPath = getCollectionPath('categories');
+    const budgetsPath = getCollectionPath('budgets');
+
+    if (!transactionsPath || !categoriesPath || !budgetsPath) {
+        console.error("Could not construct collection paths.");
+        setIsLoading(false);
+        return;
+    }
+
+    const unsubTransactions = onSnapshot(collection(db, transactionsPath), (snapshot) => {
+      const transData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      // Sort by date, most recent first
+      transData.sort((a, b) => (b.date?.toDate?.() || new Date(0)) - (a.date?.toDate?.() || new Date(0)));
+      setTransactions(transData);
+      // console.log("Transactions fetched:", transData.length);
+    }, (err) => {
+      console.error("Error fetching transactions:", err);
+      setError("Failed to load transactions.");
+    });
+
+    const unsubCategories = onSnapshot(collection(db, categoriesPath), (snapshot) => {
+      const catData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      catData.sort((a,b) => a.name.localeCompare(b.name));
+      setCategories(catData);
+      // console.log("Categories fetched:", catData.length);
+    }, (err) => {
+      console.error("Error fetching categories:", err);
+      setError("Failed to load categories.");
+    });
+
+    const unsubBudgets = onSnapshot(collection(db, budgetsPath), (snapshot) => {
+      const budgetData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setBudgets(budgetData);
+      // console.log("Budgets fetched:", budgetData.length);
+    }, (err) => {
+      console.error("Error fetching budgets:", err);
+      setError("Failed to load budgets.");
+    });
+    
+    setIsLoading(false);
+
+    return () => {
+      unsubTransactions();
+      unsubCategories();
+      unsubBudgets();
+    };
+  }, [isAuthReady, userId, db, getCollectionPath, seedDefaultCategories]);
+
+
+  // --- CRUD Operations ---
+  // Transactions
+  const handleSaveTransaction = async (transactionData) => {
+    if (!userId || !db) {
+      setError("User not authenticated. Cannot save transaction.");
+      return;
+    }
+    const transactionsPath = getCollectionPath('transactions');
+    if (!transactionsPath) {
+        setError("Could not determine storage path.");
+        return;
+    }
+
+    const dataToSave = {
+        ...transactionData,
+        amount: parseFloat(transactionData.amount),
+        date: Timestamp.fromDate(new Date(transactionData.date)), // Store as Firestore Timestamp
+        userId: userId, // Ensure userId is associated
+    };
+
+    try {
+      if (editingTransaction) {
+        const docRef = doc(db, transactionsPath, editingTransaction.id);
+        await updateDoc(docRef, dataToSave);
+        setEditingTransaction(null);
+      } else {
+        await addDoc(collection(db, transactionsPath), { ...dataToSave, createdAt: Timestamp.now() });
+      }
+      setShowTransactionModal(false);
+    } catch (err) {
+      console.error("Error saving transaction:", err);
+      setError("Failed to save transaction. " + err.message);
+    }
+  };
+
+  const handleDeleteTransaction = async (id) => {
+    if (!userId || !db) {
+      setError("User not authenticated. Cannot delete transaction.");
+      return;
+    }
+    const docPath = getDocPath('transactions', id);
+    if (!docPath) {
+        setError("Could not determine document path for deletion.");
+        return;
+    }
+    // Basic confirmation (replace with a proper modal later)
+    if (window.confirm("Are you sure you want to delete this transaction? This action cannot be undone.")) {
+        try {
+            await deleteDoc(doc(db, docPath));
+        } catch (err) {
+            console.error("Error deleting transaction:", err);
+            setError("Failed to delete transaction. " + err.message);
+        }
+    }
+  };
+
+  // Categories
+  const handleSaveCategory = async (categoryData) => {
+    if (!userId || !db) {
+      setError("User not authenticated. Cannot save category.");
+      return;
+    }
+    const categoriesPath = getCollectionPath('categories');
+     if (!categoriesPath) {
+        setError("Could not determine storage path for categories.");
+        return;
+    }
+
+    const dataToSave = { ...categoryData, userId: userId };
+
+    try {
+      if (editingCategory) {
+        const docRef = doc(db, categoriesPath, editingCategory.id);
+        await updateDoc(docRef, dataToSave);
+        setEditingCategory(null);
+      } else {
+        await addDoc(collection(db, categoriesPath), { ...dataToSave, createdAt: Timestamp.now() });
+      }
+      setShowCategoryModal(false);
+    } catch (err) {
+      console.error("Error saving category:", err);
+      setError("Failed to save category. " + err.message);
+    }
+  };
+
+  const handleDeleteCategory = async (id) => {
+     if (!userId || !db) {
+      setError("User not authenticated. Cannot delete category.");
+      return;
+    }
+    const docPath = getDocPath('categories', id);
+    if (!docPath) {
+        setError("Could not determine document path for category deletion.");
+        return;
+    }
+     // Check if category is used in transactions or budgets
+    const isCategoryUsedInTransactions = transactions.some(t => t.categoryId === id);
+    const isCategoryUsedInBudgets = budgets.some(b => b.categoryId === id);
+
+    if (isCategoryUsedInTransactions || isCategoryUsedInBudgets) {
+        setError("Cannot delete category. It is currently associated with existing transactions or budgets. Please reassign them first.");
+        // A more user-friendly approach would be a modal explaining this
+        // and possibly offering to reassign items to a different category.
+        return;
+    }
+
+    if (window.confirm("Are you sure you want to delete this category? This action cannot be undone.")) {
+        try {
+            await deleteDoc(doc(db, docPath));
+        } catch (err) {
+            console.error("Error deleting category:", err);
+            setError("Failed to delete category. " + err.message);
+        }
+    }
+  };
+
+
+  // Budgets
+  const handleSaveBudget = async (budgetData) => {
+    if (!userId || !db) {
+      setError("User not authenticated. Cannot save budget.");
+      return;
+    }
+    const budgetsPath = getCollectionPath('budgets');
+    if (!budgetsPath) {
+        setError("Could not determine storage path for budgets.");
+        return;
+    }
+
+    const dataToSave = {
+        ...budgetData,
+        amount: parseFloat(budgetData.amount),
+        userId: userId,
+    };
+
+    try {
+      if (editingBudget) {
+        // For budgets, categoryId + month is unique. Let's assume we use the doc ID.
+        const docRef = doc(db, budgetsPath, editingBudget.id);
+        await updateDoc(docRef, dataToSave);
+        setEditingBudget(null);
+      } else {
+        // Check if a budget for this category and month already exists
+        const budgetQuery = query(collection(db, budgetsPath), 
+            where("categoryId", "==", budgetData.categoryId),
+            where("monthYear", "==", budgetData.monthYear) // e.g., "2024-07"
+        );
+        const existing = await getDocs(budgetQuery);
+        if (!existing.empty) {
+            setError(`A budget for this category and month (${budgetData.monthYear}) already exists.`);
+            return;
+        }
+        await addDoc(collection(db, budgetsPath), { ...dataToSave, createdAt: Timestamp.now() });
+      }
+      setShowBudgetModal(false);
+    } catch (err) {
+      console.error("Error saving budget:", err);
+      setError("Failed to save budget. " + err.message);
+    }
+  };
+
+  const handleDeleteBudget = async (id) => {
+    if (!userId || !db) {
+      setError("User not authenticated. Cannot delete budget.");
+      return;
+    }
+    const docPath = getDocPath('budgets', id);
+    if (!docPath) {
+        setError("Could not determine document path for budget deletion.");
+        return;
+    }
+    if (window.confirm("Are you sure you want to delete this budget? This action cannot be undone.")) {
+        try {
+            await deleteDoc(doc(db, docPath));
+        } catch (err) {
+            console.error("Error deleting budget:", err);
+            setError("Failed to delete budget. " + err.message);
+        }
+    }
+  };
+
+  // --- Calculations for Dashboard ---
+  const { totalIncome, totalExpenses, balance, expensesByCategory } = useMemo(() => {
+    const income = transactions
+      .filter(t => categories.find(c => c.id === t.categoryId)?.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+    const expenses = transactions
+      .filter(t => categories.find(c => c.id === t.categoryId)?.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const byCategory = transactions
+      .filter(t => categories.find(c => c.id === t.categoryId)?.type === 'expense')
+      .reduce((acc, t) => {
+        const category = categories.find(c => c.id === t.categoryId);
+        const categoryName = category ? category.name : 'Uncategorized';
+        acc[categoryName] = (acc[categoryName] || 0) + t.amount;
+        return acc;
+      }, {});
+      
+    return {
+      totalIncome: income,
+      totalExpenses: expenses,
+      balance: income - expenses,
+      expensesByCategory: Object.entries(byCategory).map(([name, value]) => ({ name, value })),
+    };
+  }, [transactions, categories]);
+
+  // --- UI Event Handlers ---
+  const openTransactionModal = (transaction = null) => {
+    setEditingTransaction(transaction);
+    setShowTransactionModal(true);
+    setError(null); // Clear previous errors
+  };
+
+  const openCategoryModal = (category = null) => {
+    setEditingCategory(category);
+    setShowCategoryModal(true);
+    setError(null);
+  };
+
+  const openBudgetModal = (budget = null) => {
+    setEditingBudget(budget);
+    setShowBudgetModal(true);
+    setError(null);
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      // State will be cleared by onAuthStateChanged listener
+      console.log("User signed out successfully.");
+      setCurrentView('dashboard'); // Go to a public/neutral view if any, or just reset
+    } catch (error) {
+      console.error("Error signing out: ", error);
+      setError("Failed to sign out.");
+    }
+  };
+
+
+  if (isLoading && !isAuthReady) {
+    return <div className="flex justify-center items-center h-screen bg-slate-900 text-white"><div className="text-xl">Initializing Finance Tracker...</div></div>;
+  }
+  
+  // --- Render ---
+  return (
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
+      <header className="bg-slate-800 shadow-md p-4">
+        <div className="container mx-auto flex justify-between items-center">
+          <h1 className="text-3xl font-bold text-sky-400 flex items-center">
+            <DollarSign className="w-8 h-8 mr-2" /> Personal Finance Tracker
+          </h1>
+          <div className="flex items-center space-x-4">
+            {userId && <span className="text-xs text-slate-400">UID: {userId}</span>}
+            {user && (
+              <button
+                onClick={handleSignOut}
+                className="flex items-center px-3 py-2 bg-red-500 hover:bg-red-600 rounded-md text-sm font-medium transition-colors"
+              >
+                <LogOut className="w-4 h-4 mr-1.5" /> Sign Out
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {error && (
+        <div className="container mx-auto mt-4">
+          <div className="bg-red-500/20 border border-red-700 text-red-300 px-4 py-3 rounded-md relative" role="alert">
+            <strong className="font-bold">Error: </strong>
+            <span className="block sm:inline">{error}</span>
+            <button onClick={() => setError(null)} className="absolute top-0 bottom-0 right-0 px-4 py-3 text-red-300 hover:text-red-100">
+              <span className="text-2xl">&times;</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!user && isAuthReady && (
+        <div className="flex-grow flex flex-col justify-center items-center p-8 text-center">
+            <h2 className="text-2xl font-semibold mb-4 text-sky-400">Welcome to Your Finance Tracker</h2>
+            <p className="text-slate-300 mb-6">Please wait while we securely sign you in or set up your session.</p>
+            <p className="text-slate-400 text-sm">If this message persists, please check your internet connection or try refreshing the page.</p>
+        </div>
+      )}
+
+      {user && isAuthReady && (
+        <>
+          <nav className="bg-slate-800 border-b border-slate-700">
+            <div className="container mx-auto flex justify-center space-x-2 sm:space-x-4 p-3">
+              {[
+                {label: 'Dashboard', view: 'dashboard', icon: <PieChartIcon className="w-5 h-5 mr-1.5"/>},
+                {label: 'Transactions', view: 'transactions', icon: <List className="w-5 h-5 mr-1.5"/>},
+                {label: 'Budgets', view: 'budgets', icon: <Target className="w-5 h-5 mr-1.5"/>},
+                {label: 'Categories', view: 'categories', icon: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 mr-1.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>},
+              ].map(item => (
+                <button
+                  key={item.view}
+                  onClick={() => setCurrentView(item.view)}
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors
+                    ${currentView === item.view 
+                      ? 'bg-sky-500 text-white' 
+                      : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                    }`}
+                >
+                  {item.icon} {item.label}
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
+            {currentView === 'dashboard' && <DashboardView transactions={transactions} categories={categories} budgets={budgets} totalIncome={totalIncome} totalExpenses={totalExpenses} balance={balance} expensesByCategory={expensesByCategory} />}
+            {currentView === 'transactions' && <TransactionsView transactions={transactions} categories={categories} onAdd={() => openTransactionModal()} onEdit={openTransactionModal} onDelete={handleDeleteTransaction} />}
+            {currentView === 'categories' && <CategoriesView categories={categories} onAdd={() => openCategoryModal()} onEdit={openCategoryModal} onDelete={handleDeleteCategory} />}
+            {currentView === 'budgets' && <BudgetsView budgets={budgets} categories={categories} transactions={transactions} onAdd={() => openBudgetModal()} onEdit={openBudgetModal} onDelete={handleDeleteBudget} />}
+          </main>
+        </>
+      )}
+
+      {showTransactionModal && <TransactionModal categories={categories} transaction={editingTransaction} onSave={handleSaveTransaction} onClose={() => { setShowTransactionModal(false); setEditingTransaction(null); }} />}
+      {showCategoryModal && <CategoryModal category={editingCategory} onSave={handleSaveCategory} onClose={() => { setShowCategoryModal(false); setEditingCategory(null); }} />}
+      {showBudgetModal && <BudgetModal categories={categories.filter(c => c.type === 'expense')} budget={editingBudget} onSave={handleSaveBudget} onClose={() => { setShowBudgetModal(false); setEditingBudget(null); }} />}
+      
+      <footer className="bg-slate-800 text-center p-4 border-t border-slate-700 text-sm text-slate-400">
+        &copy; {new Date().getFullYear()} Personal Finance Tracker. App ID: {appId}.
+      </footer>
+    </div>
+  );
+}
+
+// --- View Components ---
+const DashboardView = ({ totalIncome, totalExpenses, balance, expensesByCategory, transactions, categories, budgets }) => {
+  const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FF7F50', '#DA70D6'];
+
+  const recentTransactions = transactions.slice(0, 5);
+
+  // Calculate budget progress
+  const budgetProgress = useMemo(() => {
+    const currentMonthYear = new Date().toISOString().slice(0, 7); // YYYY-MM
+    return budgets
+      .filter(b => b.monthYear === currentMonthYear) // Only for current month's budgets
+      .map(budget => {
+        const category = categories.find(c => c.id === budget.categoryId);
+        if (!category) return null;
+
+        const spent = transactions
+          .filter(t => t.categoryId === budget.categoryId && 
+                       t.date && t.date.toDate && 
+                       t.date.toDate().toISOString().slice(0, 7) === currentMonthYear &&
+                       category.type === 'expense'
+                 )
+          .reduce((sum, t) => sum + t.amount, 0);
+        
+        const progress = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+        return {
+          ...budget,
+          categoryName: category.name,
+          spent,
+          progress: Math.min(progress, 100), // Cap at 100% for display
+          isOverBudget: spent > budget.amount
+        };
+      }).filter(b => b !== null);
+  }, [budgets, transactions, categories]);
+
+
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <SummaryCard title="Total Income" value={formatCurrency(totalIncome)} icon={<TrendingUp className="text-green-400"/>} color="green" />
+        <SummaryCard title="Total Expenses" value={formatCurrency(totalExpenses)} icon={<TrendingDown className="text-red-400"/>} color="red" />
+        <SummaryCard title="Net Balance" value={formatCurrency(balance)} icon={<DollarSign className={balance >= 0 ? "text-sky-400" : "text-amber-400"}/>} color={balance >= 0 ? "sky" : "amber"} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-slate-800 p-6 rounded-lg shadow-xl">
+          <h3 className="text-xl font-semibold mb-4 text-sky-400">Expenses by Category</h3>
+          {expensesByCategory.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <PieChart>
+                <Pie data={expensesByCategory} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                  {expensesByCategory.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : <p className="text-slate-400">No expense data available to display chart.</p>}
+        </div>
+
+        <div className="bg-slate-800 p-6 rounded-lg shadow-xl">
+          <h3 className="text-xl font-semibold mb-4 text-sky-400">Recent Transactions</h3>
+          {recentTransactions.length > 0 ? (
+            <ul className="space-y-3">
+              {recentTransactions.map(t => {
+                const category = categories.find(c => c.id === t.categoryId);
+                return (
+                  <li key={t.id} className="flex justify-between items-center p-3 bg-slate-700/50 rounded-md">
+                    <div>
+                      <span className="font-medium">{t.description}</span>
+                      <span className="block text-xs text-slate-400">
+                        {category?.name || 'Uncategorized'} - {formatDate(t.date)}
+                      </span>
+                    </div>
+                    <span className={`font-semibold ${category?.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
+                      {category?.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : <p className="text-slate-400">No recent transactions.</p>}
+        </div>
+      </div>
+      
+      <div className="bg-slate-800 p-6 rounded-lg shadow-xl">
+        <h3 className="text-xl font-semibold mb-4 text-sky-400">Current Month Budget Progress</h3>
+        {budgetProgress.length > 0 ? (
+          <div className="space-y-4">
+            {budgetProgress.map(budget => (
+              <div key={budget.id}>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-slate-300">{budget.categoryName}</span>
+                  <span className={`text-sm ${budget.isOverBudget ? 'text-red-400 font-semibold' : 'text-slate-400'}`}>
+                    {formatCurrency(budget.spent)} / {formatCurrency(budget.amount)}
+                  </span>
+                </div>
+                <div className="w-full bg-slate-700 rounded-full h-2.5">
+                  <div
+                    className={`h-2.5 rounded-full ${budget.isOverBudget ? 'bg-red-500' : (budget.progress > 75 ? 'bg-amber-500' : 'bg-sky-500')}`}
+                    style={{ width: `${budget.isOverBudget ? 100 : budget.progress}%` }}
+                  ></div>
+                </div>
+                 {budget.isOverBudget && <p className="text-xs text-red-400 mt-1 text-right">Over budget by {formatCurrency(budget.spent - budget.amount)}!</p>}
+              </div>
+            ))}
+          </div>
+        ) : <p className="text-slate-400">No budgets set for the current month, or no spending in budgeted categories yet.</p>}
+      </div>
+
+    </div>
+  );
+};
+
+const SummaryCard = ({ title, value, icon, color }) => {
+  const colorClasses = {
+    green: 'border-green-500/50',
+    red: 'border-red-500/50',
+    sky: 'border-sky-500/50',
+    amber: 'border-amber-500/50',
+  };
+  return (
+    <div className={`bg-slate-800 p-6 rounded-lg shadow-xl border-l-4 ${colorClasses[color]}`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-slate-400 font-medium">{title}</p>
+          <p className="text-2xl font-semibold text-slate-100">{value}</p>
+        </div>
+        <div className="p-3 bg-slate-700/50 rounded-full">
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const TransactionsView = ({ transactions, categories, onAdd, onEdit, onDelete }) => {
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterType, setFilterType] = useState(''); // 'income', 'expense', or ''
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOrder, setSortOrder] = useState('date-desc'); // 'date-asc', 'date-desc', 'amount-asc', 'amount-desc'
+
+  const filteredAndSortedTransactions = useMemo(() => {
+    let processed = [...transactions];
+
+    if (filterCategory) {
+      processed = processed.filter(t => t.categoryId === filterCategory);
+    }
+    if (filterType) {
+      processed = processed.filter(t => {
+        const category = categories.find(c => c.id === t.categoryId);
+        return category?.type === filterType;
+      });
+    }
+    if (searchTerm) {
+      const lowerSearchTerm = searchTerm.toLowerCase();
+      processed = processed.filter(t => 
+        t.description.toLowerCase().includes(lowerSearchTerm) ||
+        (categories.find(c => c.id === t.categoryId)?.name.toLowerCase().includes(lowerSearchTerm))
+      );
+    }
+
+    // Sorting
+    processed.sort((a, b) => {
+      switch (sortOrder) {
+        case 'date-asc':
+          return (a.date?.toDate?.() || 0) - (b.date?.toDate?.() || 0);
+        case 'date-desc':
+          return (b.date?.toDate?.() || 0) - (a.date?.toDate?.() || 0);
+        case 'amount-asc':
+          return a.amount - b.amount;
+        case 'amount-desc':
+          return b.amount - a.amount;
+        default:
+          return 0;
+      }
+    });
+
+    return processed;
+  }, [transactions, categories, filterCategory, filterType, searchTerm, sortOrder]);
+
+
+  return (
+    <div className="bg-slate-800 p-4 sm:p-6 rounded-lg shadow-xl">
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+        <h2 className="text-2xl font-semibold text-sky-400">Transactions</h2>
+        <button
+          onClick={onAdd}
+          className="flex items-center bg-sky-500 hover:bg-sky-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors"
+        >
+          <PlusCircle className="w-5 h-5 mr-2" /> Add Transaction
+        </button>
+      </div>
+
+      {/* Filters and Sort */}
+      <div className="mb-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-700/30 rounded-lg">
+        <div>
+          <label htmlFor="searchTerm" className="block text-sm font-medium text-slate-300 mb-1">Search</label>
+          <input
+            type="text"
+            id="searchTerm"
+            placeholder="Description or category..."
+            className="w-full bg-slate-700 border border-slate-600 text-slate-100 placeholder-slate-400 rounded-md p-2 focus:ring-sky-500 focus:border-sky-500"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div>
+          <label htmlFor="filterCategory" className="block text-sm font-medium text-slate-300 mb-1">Category</label>
+          <select
+            id="filterCategory"
+            className="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-md p-2 focus:ring-sky-500 focus:border-sky-500"
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+          >
+            <option value="">All Categories</option>
+            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="filterType" className="block text-sm font-medium text-slate-300 mb-1">Type</label>
+          <select
+            id="filterType"
+            className="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-md p-2 focus:ring-sky-500 focus:border-sky-500"
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+          >
+            <option value="">All Types</option>
+            <option value="income">Income</option>
+            <option value="expense">Expense</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="sortOrder" className="block text-sm font-medium text-slate-300 mb-1">Sort By</label>
+          <select
+            id="sortOrder"
+            className="w-full bg-slate-700 border border-slate-600 text-slate-100 rounded-md p-2 focus:ring-sky-500 focus:border-sky-500"
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+          >
+            <option value="date-desc">Date (Newest First)</option>
+            <option value="date-asc">Date (Oldest First)</option>
+            <option value="amount-desc">Amount (High to Low)</option>
+            <option value="amount-asc">Amount (Low to High)</option>
+          </select>
+        </div>
+      </div>
+
+
+      {filteredAndSortedTransactions.length === 0 ? (
+        <p className="text-center text-slate-400 py-8">No transactions found. Add your first one!</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-slate-700">
+            <thead className="bg-slate-700/50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Date</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Description</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Category</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Amount</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Type</th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-slate-800 divide-y divide-slate-700">
+              {filteredAndSortedTransactions.map(t => {
+                const category = categories.find(c => c.id === t.categoryId);
+                return (
+                  <tr key={t.id} className="hover:bg-slate-700/30 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{formatDate(t.date)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-100">{t.description}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-300">{category?.name || 'N/A'}</td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${category?.type === 'income' ? 'text-green-400' : 'text-red-400'}`}>
+                      {formatCurrency(t.amount)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        category?.type === 'income' ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'
+                      }`}>
+                        {category?.type || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button onClick={() => onEdit(t)} className="text-sky-400 hover:text-sky-300 transition-colors p-1"><Edit3 /></button>
+                      <button onClick={() => onDelete(t.id)} className="text-red-400 hover:text-red-300 transition-colors p-1"><Trash2 /></button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const CategoriesView = ({ categories, onAdd, onEdit, onDelete }) => {
+  return (
+    <div className="bg-slate-800 p-4 sm:p-6 rounded-lg shadow-xl">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold text-sky-400">Manage Categories</h2>
+        <button
+          onClick={onAdd}
+          className="flex items-center bg-sky-500 hover:bg-sky-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors"
+        >
+          <PlusCircle className="w-5 h-5 mr-2" /> Add Category
+        </button>
+      </div>
+      {categories.length === 0 ? (
+         <p className="text-center text-slate-400 py-8">No categories defined. Default categories will be added, or you can add your own.</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {categories.map(cat => (
+            <div key={cat.id} className="bg-slate-700/50 p-4 rounded-lg shadow-md">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-100 flex items-center">
+                    <span className="mr-2 text-xl">{cat.icon || "📁"}</span>{cat.name}
+                  </h3>
+                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cat.type === 'income' ? 'bg-green-500/30 text-green-300' : 'bg-red-500/30 text-red-300'}`}>
+                    {cat.type}
+                  </span>
+                </div>
+                <div className="flex space-x-2 mt-1">
+                  <button onClick={() => onEdit(cat)} className="text-sky-400 hover:text-sky-300 p-1"><Edit3 className="w-4 h-4"/></button>
+                  <button onClick={() => onDelete(cat.id)} className="text-red-400 hover:text-red-300 p-1"><Trash2 className="w-4 h-4"/></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const BudgetsView = ({ budgets, categories, transactions, onAdd, onEdit, onDelete }) => {
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+
+  const budgetsForSelectedMonth = useMemo(() => {
+    return budgets
+      .filter(b => b.monthYear === selectedMonth)
+      .map(budget => {
+        const category = categories.find(c => c.id === budget.categoryId);
+        if (!category) return { ...budget, categoryName: 'Unknown Category', spent: 0, progress: 0, isOverBudget: false };
+
+        const spent = transactions
+          .filter(t => t.categoryId === budget.categoryId && 
+                       t.date && t.date.toDate && 
+                       t.date.toDate().toISOString().slice(0, 7) === selectedMonth &&
+                       category.type === 'expense' // Budgets are typically for expenses
+                 )
+          .reduce((sum, t) => sum + t.amount, 0);
+        
+        const progress = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+        return {
+          ...budget,
+          categoryName: category.name,
+          categoryIcon: category.icon,
+          spent,
+          progress: Math.min(progress, 100),
+          isOverBudget: spent > budget.amount
+        };
+      });
+  }, [budgets, categories, transactions, selectedMonth]);
+
+  const expenseCategories = categories.filter(c => c.type === 'expense');
+
+  return (
+    <div className="bg-slate-800 p-4 sm:p-6 rounded-lg shadow-xl">
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+        <h2 className="text-2xl font-semibold text-sky-400">Manage Budgets</h2>
+        <div className="flex items-center gap-4">
+          <input 
+            type="month"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="bg-slate-700 border border-slate-600 text-slate-100 rounded-md p-2 focus:ring-sky-500 focus:border-sky-500"
+          />
+          <button
+            onClick={onAdd}
+            className="flex items-center bg-sky-500 hover:bg-sky-600 text-white font-medium py-2 px-4 rounded-lg shadow-md transition-colors"
+          >
+            <PlusCircle className="w-5 h-5 mr-2" /> Add Budget
+          </button>
+        </div>
+      </div>
+
+      {expenseCategories.length === 0 && (
+         <p className="text-center text-slate-400 py-4">Please add some 'expense' categories first to create budgets.</p>
+      )}
+
+      {budgetsForSelectedMonth.length === 0 ? (
+         <p className="text-center text-slate-400 py-8">No budgets set for {selectedMonth}. Add one to start tracking!</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {budgetsForSelectedMonth.map(budget => (
+            <div key={budget.id} className={`p-4 rounded-lg shadow-md ${budget.isOverBudget ? 'bg-red-700/30 border border-red-500' : 'bg-slate-700/50'}`}>
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="text-lg font-semibold text-slate-100 flex items-center">
+                  <span className="mr-2 text-xl">{budget.categoryIcon || "🎯"}</span>{budget.categoryName}
+                </h3>
+                <div className="flex space-x-1">
+                  <button onClick={() => onEdit(budget)} className="text-sky-400 hover:text-sky-300 p-1"><Edit3 className="w-4 h-4"/></button>
+                  <button onClick={() => onDelete(budget.id)} className="text-red-400 hover:text-red-300 p-1"><Trash2 className="w-4 h-4"/></button>
+                </div>
+              </div>
+              <p className="text-sm text-slate-300">Budget: {formatCurrency(budget.amount)}</p>
+              <p className={`text-sm ${budget.isOverBudget ? 'text-red-300 font-bold' : 'text-slate-300'}`}>Spent: {formatCurrency(budget.spent)}</p>
+              <div className="w-full bg-slate-600 rounded-full h-2.5 mt-2 mb-1">
+                <div
+                  className={`h-2.5 rounded-full ${budget.isOverBudget ? 'bg-red-500' : (budget.progress > 75 ? 'bg-amber-500' : 'bg-sky-500')}`}
+                  style={{ width: `${budget.isOverBudget ? 100 : budget.progress}%` }}
+                ></div>
+              </div>
+              <p className="text-xs text-right text-slate-400">{budget.progress.toFixed(0)}% Used</p>
+              {budget.isOverBudget && <p className="text-xs text-red-300 mt-1 text-right font-semibold">Over budget by {formatCurrency(budget.spent - budget.amount)}!</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+// --- Modal Components ---
+const ModalWrapper = ({ children, title, onClose }) => (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex justify-center items-center p-4 z-50 transition-opacity duration-300 ease-in-out">
+    <div className="bg-slate-800 p-6 rounded-lg shadow-2xl w-full max-w-md transform transition-all duration-300 ease-in-out scale-100">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-semibold text-sky-400">{title}</h3>
+        <button onClick={onClose} className="text-slate-400 hover:text-slate-200 text-2xl">&times;</button>
+      </div>
+      {children}
+    </div>
+  </div>
+);
+
+const TransactionModal = ({ categories, transaction, onSave, onClose }) => {
+  const [description, setDescription] = useState(transaction?.description || '');
+  const [amount, setAmount] = useState(transaction?.amount || '');
+  const [date, setDate] = useState(transaction?.date ? formatDate(transaction.date) : formatDate(new Date()));
+  const [categoryId, setCategoryId] = useState(transaction?.categoryId || '');
+  const [formError, setFormError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setFormError('');
+    if (!description || !amount || !date || !categoryId) {
+      setFormError('All fields are required.');
+      return;
+    }
+    if (parseFloat(amount) <= 0) {
+        setFormError('Amount must be a positive number.');
+        return;
+    }
+    const selectedCategory = categories.find(c => c.id === categoryId);
+    if (!selectedCategory) {
+        setFormError('Invalid category selected.');
+        return;
+    }
+
+    onSave({ description, amount, date, categoryId });
+  };
+
+  return (
+    <ModalWrapper title={transaction ? 'Edit Transaction' : 'Add Transaction'} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="description" className="block text-sm font-medium text-slate-300">Description</label>
+          <input type="text" id="description" value={description} onChange={e => setDescription(e.target.value)} required 
+                 className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-100 placeholder-slate-400" placeholder="e.g., Coffee with friend"/>
+        </div>
+        <div>
+          <label htmlFor="amount" className="block text-sm font-medium text-slate-300">Amount</label>
+          <input type="number" id="amount" value={amount} onChange={e => setAmount(e.target.value)} required step="0.01"
+                 className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-100 placeholder-slate-400" placeholder="e.g., 5.50"/>
+        </div>
+        <div>
+          <label htmlFor="date" className="block text-sm font-medium text-slate-300">Date</label>
+          <input type="date" id="date" value={date} onChange={e => setDate(e.target.value)} required 
+                 className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-100"/>
+        </div>
+        <div>
+          <label htmlFor="category" className="block text-sm font-medium text-slate-300">Category</label>
+          <select id="category" value={categoryId} onChange={e => setCategoryId(e.target.value)} required
+                  className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-100">
+            <option value="" disabled>Select a category</option>
+            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.name} ({cat.type})</option>)}
+          </select>
+        </div>
+        {formError && <p className="text-sm text-red-400">{formError}</p>}
+        <div className="flex justify-end space-x-3 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-sky-500 hover:bg-sky-600 rounded-md shadow-sm transition-colors">Save Transaction</button>
+        </div>
+      </form>
+    </ModalWrapper>
+  );
+};
+
+const CategoryModal = ({ category, onSave, onClose }) => {
+  const [name, setName] = useState(category?.name || '');
+  const [type, setType] = useState(category?.type || 'expense');
+  const [icon, setIcon] = useState(category?.icon || '');
+  const [formError, setFormError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setFormError('');
+    if (!name || !type) {
+      setFormError('Name and type are required.');
+      return;
+    }
+    onSave({ name, type, icon });
+  };
+
+  return (
+    <ModalWrapper title={category ? 'Edit Category' : 'Add Category'} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="categoryName" className="block text-sm font-medium text-slate-300">Category Name</label>
+          <input type="text" id="categoryName" value={name} onChange={e => setName(e.target.value)} required 
+                 className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-100 placeholder-slate-400" placeholder="e.g., Groceries"/>
+        </div>
+        <div>
+          <label htmlFor="categoryType" className="block text-sm font-medium text-slate-300">Type</label>
+          <select id="categoryType" value={type} onChange={e => setType(e.target.value)} required
+                  className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-100">
+            <option value="expense">Expense</option>
+            <option value="income">Income</option>
+          </select>
+        </div>
+         <div>
+          <label htmlFor="categoryIcon" className="block text-sm font-medium text-slate-300">Icon (Emoji)</label>
+          <input type="text" id="categoryIcon" value={icon} onChange={e => setIcon(e.target.value)} maxLength="2"
+                 className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-100 placeholder-slate-400" placeholder="e.g., 🛒"/>
+        </div>
+        {formError && <p className="text-sm text-red-400">{formError}</p>}
+        <div className="flex justify-end space-x-3 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-sky-500 hover:bg-sky-600 rounded-md shadow-sm transition-colors">Save Category</button>
+        </div>
+      </form>
+    </ModalWrapper>
+  );
+};
+
+const BudgetModal = ({ categories, budget, onSave, onClose }) => {
+  const [categoryId, setCategoryId] = useState(budget?.categoryId || '');
+  const [amount, setAmount] = useState(budget?.amount || '');
+  // Default to current month for new budgets, or budget's month if editing
+  const [monthYear, setMonthYear] = useState(budget?.monthYear || new Date().toISOString().slice(0,7));
+  const [formError, setFormError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setFormError('');
+    if (!categoryId || !amount || !monthYear) {
+      setFormError('All fields are required.');
+      return;
+    }
+    if (parseFloat(amount) <= 0) {
+        setFormError('Budget amount must be a positive number.');
+        return;
+    }
+    onSave({ categoryId, amount, monthYear });
+  };
+
+  return (
+    <ModalWrapper title={budget ? 'Edit Budget' : 'Add Budget'} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label htmlFor="budgetCategory" className="block text-sm font-medium text-slate-300">Category (Expense Only)</label>
+          <select id="budgetCategory" value={categoryId} onChange={e => setCategoryId(e.target.value)} required
+                  className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-100"
+                  disabled={!!budget} // Disable category change when editing for simplicity
+                  >
+            <option value="" disabled>Select an expense category</option>
+            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>)}
+          </select>
+           {!!budget && <p className="text-xs text-slate-400 mt-1">Category cannot be changed when editing a budget.</p>}
+        </div>
+        <div>
+          <label htmlFor="budgetAmount" className="block text-sm font-medium text-slate-300">Budget Amount</label>
+          <input type="number" id="budgetAmount" value={amount} onChange={e => setAmount(e.target.value)} required step="0.01"
+                 className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-100 placeholder-slate-400" placeholder="e.g., 500"/>
+        </div>
+        <div>
+          <label htmlFor="budgetMonth" className="block text-sm font-medium text-slate-300">Month</label>
+          <input type="month" id="budgetMonth" value={monthYear} onChange={e => setMonthYear(e.target.value)} required
+                 className="mt-1 block w-full bg-slate-700 border border-slate-600 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-sky-500 focus:border-sky-500 sm:text-sm text-slate-100"
+                 disabled={!!budget} // Disable month change when editing for simplicity
+                 />
+           {!!budget && <p className="text-xs text-slate-400 mt-1">Month cannot be changed when editing a budget.</p>}
+        </div>
+        {formError && <p className="text-sm text-red-400">{formError}</p>}
+        <div className="flex justify-end space-x-3 pt-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-medium text-slate-300 bg-slate-600 hover:bg-slate-500 rounded-md transition-colors">Cancel</button>
+          <button type="submit" className="px-4 py-2 text-sm font-medium text-white bg-sky-500 hover:bg-sky-600 rounded-md shadow-sm transition-colors">Save Budget</button>
+        </div>
+      </form>
+    </ModalWrapper>
+  );
+};
+
+
+export default App;
